@@ -1,26 +1,20 @@
 #include "tinkey_winky.hpp"
+#define SERVICE_NAME "tinky"
 
 /*
-    - OpenSCManager ?? NULL, "ServicesActive", or "ServicesFailed".
-     OpenSCManager(NULL, "E:\Windows\WHAT_IS_THE_FILENAME", SC_MANAGER_ALL_ACCESS)
-    - CreateService sert seulement a le creer
-    - OpenService sert a le gerer via un code que je donne a start service
-    - StartService ??
-    - ControlService ??
-    - CloseServiceHandle ??
-    - DuplicateTokenEx ??
-    // disable windows defender
-    official MSDN documentation. ??
-    winlogon.exe ??
-	
 	for test:
 	Get-Service -Name tinky
 	for delete:
 	Get-Service -Name "tinky" | ForEach-Object { sc.exe delete $_.Name }
 */
 
+SERVICE_STATUS g_ServiceStatus = {};
+SERVICE_STATUS_HANDLE g_StatusHandle = nullptr;
+bool g_Running = true;
+
 bool create_service()
 {
+
 	SC_HANDLE hSCManager = OpenSCManager(nullptr, nullptr, SC_MANAGER_ALL_ACCESS);
 	if (!hSCManager)
 	{
@@ -31,7 +25,7 @@ bool create_service()
 
 	SC_HANDLE hService = CreateServiceA(
 		hSCManager,
-		"tinky",
+		SERVICE_NAME,
 		"tinky",
 		SERVICE_ALL_ACCESS,
 		SERVICE_WIN32_OWN_PROCESS,
@@ -53,11 +47,8 @@ bool create_service()
 		}
 	}
 	else
-	{
 		CloseServiceHandle(hService); // Close if newly created, will reopen below
-	}
-
-	hService = OpenService(hSCManager, "tinky", SERVICE_START | SERVICE_QUERY_STATUS);
+	hService = OpenService(hSCManager, SERVICE_NAME, SERVICE_START | SERVICE_QUERY_STATUS);
 	if (!hService)
 	{
 		std::cerr << "OpenService failed: " << GetLastError() << std::endl;
@@ -68,7 +59,9 @@ bool create_service()
 		std::cerr << "StartService failed: " << GetLastError() << std::endl;
 	else
 		std::cout << "Service Started" << std::endl;
-	CloseServiceHandle(hService);
+	
+	
+		CloseServiceHandle(hService);
 	CloseServiceHandle(hSCManager);
 	return true;
 }

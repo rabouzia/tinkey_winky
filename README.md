@@ -14,75 +14,128 @@ an antenna shaped like a stick used for blowing soap bubbles. Her favourite toy 
 a pink and blue scooter.
 
 
-# ✅ Windows Service Development Checklist
+# ✅ Windows Service Checklist (based on your current implementation)
 
-## 🧱 CORE IMPLEMENTATION
+> Executable: `svc.exe`  
+> Installer function: `create_service()`  
+> Service name: `tinky`  
+> Dev path: `Z:\.0_dev\tinkey_winky\svc.exe`
 
-- [x] `ServiceMain` function defined  
-- [x] `ServiceCtrlHandler` registered with `RegisterServiceCtrlHandler()`  
-- [x] `StartServiceCtrlDispatcher()` called in `main()`  
-- [x] `SetServiceStatus()` called with:
+---
+
+## 🧱 Core C++ Service Installer (`create_service()`)
+
+### ✔️ What’s already implemented
+
+- [x] Calls `OpenSCManager` with `SC_MANAGER_ALL_ACCESS`
+- [x] Registers service with `CreateServiceA`
+  - [x] Uses full path to `svc.exe`
+  - [x] `SERVICE_DEMAND_START`
+  - [x] `SERVICE_WIN32_OWN_PROCESS`
+- [x] Handles `ERROR_SERVICE_EXISTS` without crashing
+- [x] Reopens service with `OpenService`
+- [x] Calls `StartService`
+- [x] Prints error with `GetLastError()` if anything fails
+- [x] Closes all service handles with `CloseServiceHandle`
+- [x] Wrapped inside a clean `bool create_service()` function
+- [x] Called from `main()` with simple message output
+
+---
+
+## 🛠️ What’s still missing or incomplete
+
+### 🚧 Installer & Start Behavior
+
+- [ ] Path passed to `CreateServiceA` is hardcoded  
+  ➤ **TODO:** Make dynamic or configurable (e.g. from argument or config file)
+
+- [ ] `StartService()` will fail silently if `svc.exe` is not a valid service binary  
+  ➤ **TODO:** Ensure `svc.exe` contains `ServiceMain()` and properly responds to start
+
+---
+
+## 🧠 Inside `svc.exe`: What Must Be Implemented
+
+> These are the **absolute requirements** to make your service run properly when `StartService()` is called.
+
+### 🚨 Required in `svc.exe`
+
+- [x] `main()` calls `StartServiceCtrlDispatcher()`
+- [x] `ServiceMain()` is defined and registered in a `SERVICE_TABLE_ENTRY`
+- [x] `RegisterServiceCtrlHandler()` is called inside `ServiceMain()`
+- [x] `SetServiceStatus()` is used to set:
   - [x] `SERVICE_START_PENDING`
   - [x] `SERVICE_RUNNING`
   - [x] `SERVICE_STOP_PENDING`
-  - [x] `SERVICE_STOPPED`  
-- [x] Main service loop that runs while `g_Running == true`  
-- [x] Clean exit when `SERVICE_CONTROL_STOP` is received  
+  - [x] `SERVICE_STOPPED`
+- [x] Main loop runs while a `g_Running` flag is `true`
+- [x] `SERVICE_CONTROL_STOP` is handled and stops the loop
 
 ---
 
-## 🔌 SERVICE BEHAVIOR & INTERACTIONS
+## 🧪 Service Testing & Observability
 
-- [ ] Add logging (stdout or Event Viewer)
-- [ ] Add `SERVICE_ACCEPT_PAUSE_CONTINUE` support (optional)
-- [ ] (Optional) Implement `SERVICE_CONTROL_INTERROGATE`
-- [ ] (Optional) Add argument parsing from `StartService(..., args)` if needed
+### 🧾 Testing Checklist
 
----
-
-## ⚙️ SERVICE CREATION & CONTROL
-
-- [x] `CreateServiceA()` used to register the service from a tool or program
-- [x] `OpenService()` + `StartService()` tested successfully
-- [x] `sc stop tinky` works correctly (service exits cleanly)
-- [ ] `sc delete tinky` tested and works
-- [x] Error 1056 handled (service already running)
-- [ ] Error handling for `StartServiceCtrlDispatcher` and other critical calls
+| Test                                | Done? | Notes                                      |
+|-------------------------------------|-------|---------------------------------------------|
+| `sc create tinky ...`               | ✅    | Done via `create_service()`                |
+| `sc start tinky`                    | ✅    | `StartService()` works                     |
+| `sc stop tinky`                     | 🔲    | Requires `ControlService` in `svc.exe`     |
+| `sc delete tinky`                  | ✅    | Already included as PowerShell tip         |
+| `Get-Service -Name tinky`          | ✅    | Used for live status check                 |
+| `services.msc` shows "tinky"       | ✅    | Visible in GUI                             |
+| Console/log output on service start| 🔲    | No logging or console in `svc.exe` yet     |
 
 ---
 
-## 🧪 TESTING & VALIDATION
+## 🪪 Security / Permissions
 
-- [x] Service appears in `services.msc`
-- [x] `Get-Service tinky` shows status correctly
-- [ ] Service can survive reboot (`SERVICE_AUTO_START`) if needed
-- [ ] Behavior validated when run as SYSTEM / LocalService
-- [ ] Service tested on a clean machine or VM
+- [ ] Service currently runs under default user (likely SYSTEM)
+  ➤ **TODO:** Consider using `LocalService` or specific restricted account
 
----
+- [x] No interactive UI or GUI prompts inside the service (✅ good)
 
-## 📦 PACKAGING & DEPLOYMENT
-
-- [ ] Service binary compiled in **Release** mode
-- [ ] No console window opens when run (`/SUBSYSTEM:WINDOWS` in linker flags)
-- [ ] Installer or script to create the service (`sc create`, or your tool)
-- [ ] Proper `binPath=` in CreateService (uses full path)
-- [ ] (Optional) Signed binary (if deploying on production environments)
+- [ ] Not signed with a certificate (optional for production)
 
 ---
 
-## 🔒 SECURITY & PERMISSIONS
+## 📦 Deployment & Production Readiness
 
-- [ ] Uses least privilege account (`LocalService`, `NetworkService`)
-- [ ] Does **not** interact with desktop (no GUI calls or MessageBox)
-- [ ] Handles access rights properly (`OpenService(..., SERVICE_* flags)`)
+- [ ] Binary compiled in `Release` mode
+- [ ] `/SUBSYSTEM:WINDOWS` used in linker flags (no console on service startup)
+- [ ] Service path doesn't include dev path (`Z:\.0_dev\...`)
+- [ ] Logging available via file or Windows Event Log
+- [ ] Optional: setup script to automate install/delete
 
 ---
 
-## 🎁 BONUS / NICE TO HAVE
+## 🔁 Final Feature Wishlist
 
-- [ ] Event Viewer logging (`ReportEvent`)
-- [ ] Log file output with timestamps
-- [ ] IPC or socket server (e.g. to receive commands)
-- [ ] Automatic restart on failure (`sc failure` config)
-- [ ] Unit tests (for any logic inside service loop)
+| Feature                         | Implemented? |
+|----------------------------------|--------------|
+| Basic service creation           | ✅           |
+| Basic service start              | ✅           |
+| Service binary responding        | ✅           |
+| Service stop (via SCM)           | 🔲           |
+| Console/log file output          | 🔲           |
+| Auto-restart on failure          | 🔲           |
+| Arguments passed to service      | 🔲           |
+| Graceful error handling/logging  | 🔲           |
+
+---
+
+## 💡 Quick Test Commands (for now)
+
+```powershell
+# Check if it's running
+Get-Service -Name tinky
+
+# Stop the service (when svc.exe supports stop)
+sc stop tinky
+
+# Delete the service
+sc delete tinky
+
+# Reinstall via your binary
+your_installer.exe
